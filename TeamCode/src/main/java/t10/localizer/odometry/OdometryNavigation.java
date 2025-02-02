@@ -5,6 +5,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 
 import t10.motion.mecanum.MecanumDriver;
 import t10.geometry.MovementVector;
+import t10.motion.profile.TrapezoidalMotionProfile;
 
 public class OdometryNavigation {
     private OdometryLocalizer odometry;
@@ -34,6 +35,37 @@ public class OdometryNavigation {
         driver.setVelocity(new MovementVector(0, 0, 0));
     }
 
+    public void driveLateralTurn(double distance, TrapezoidalMotionProfile profile, double angleTo) {
+        double initialX = odometry.getFieldCentricPose().getX();
+        double initialY = odometry.getFieldCentricPose().getY();
+        double finalY = odometry.getFieldCentricPose().getY() + distance;
+        double lateralVelo = 0;
+        double angleVelo = 0;
+        while (Math.abs(finalY - odometry.getFieldCentricPose().getY()) > minError) {
+
+            lateralVelo = profile.getVelocity(odometry.getFieldCentricPose().getY() - initialY);
+
+            if (needAngleCorrectionDegrees(odometry.getFieldCentricPose().getHeading(AngleUnit.DEGREES), angleTo)) {
+                angleVelo =  findTurnSpeed(odometry.getFieldCentricPose().getHeading(AngleUnit.DEGREES), angleTo);
+            }
+            else {
+                angleVelo = 0;
+            }
+
+            driver.setVelocity(odometry.changeToRobotCenteredVelocity(new MovementVector(
+                    lateralVelo,
+                    0,
+                    angleVelo)));
+            this.odometry.update();
+        }
+        if(needAngleCorrectionDegrees(odometry.getFieldCentricPose().getHeading(AngleUnit.DEGREES), angleTo))
+        {
+            turnAbsolute(angleTo);
+        }
+        driver.setVelocity(new MovementVector(0, 0, 0));
+    }
+
+
     public void driveHorizontal(double distance) {
         double initialY = odometry.getFieldCentricPose().getY();
         double initialX = odometry.getFieldCentricPose().getX();
@@ -44,6 +76,36 @@ public class OdometryNavigation {
         }
         driver.setVelocity(new MovementVector(0, 0, 0));
     }
+
+    public void driveHorizontalTurn(double distance, TrapezoidalMotionProfile profile, double angleTo) {
+        double initialX = odometry.getFieldCentricPose().getX();
+        double finalX = odometry.getFieldCentricPose().getX() + distance;
+        double horizontalVelo = 0;
+        double angleVelo = 0;
+        while (Math.abs(finalX - odometry.getFieldCentricPose().getX()) > minError) {
+
+            horizontalVelo = profile.getVelocity(odometry.getFieldCentricPose().getX() - initialX);
+
+            if (needAngleCorrectionDegrees(odometry.getFieldCentricPose().getHeading(AngleUnit.DEGREES), angleTo)) {
+                angleVelo =  findTurnSpeed(odometry.getFieldCentricPose().getHeading(AngleUnit.DEGREES), angleTo);
+            }
+            else {
+                angleVelo = 0;
+            }
+
+            driver.setVelocity(odometry.changeToRobotCenteredVelocity(new MovementVector(
+                    0,
+                    horizontalVelo,
+                    angleVelo)));
+            this.odometry.update();
+        }
+        if(needAngleCorrectionDegrees(odometry.getFieldCentricPose().getHeading(AngleUnit.DEGREES), angleTo))
+        {
+            turnAbsolute(angleTo);
+        }
+        driver.setVelocity(new MovementVector(0, 0, 0));
+    }
+
 
     public void driveDiagonal(double distanceX, double distanceY) {
         double initialY = odometry.getFieldCentricPose().getY();
@@ -69,29 +131,6 @@ public class OdometryNavigation {
         driver.setVelocity(new MovementVector(0, 0, 0));
     }
 
-
-    //Test function
-    public void driveForwardWhileRotating(double distance, double angle, Telemetry telemetry) {
-        double finalY = odometry.getFieldCentricPose().getY() + distance;
-
-        while (Math.abs(finalY - odometry.getFieldCentricPose().getY()) > minError
-            || Math.abs(angle - odometry.getFieldCentricPose().getHeading(AngleUnit.DEGREES)) > minAngleError) {
-            driver.setVelocity(
-                     odometry.changeToRobotCenteredVelocity(new MovementVector(
-                    odometry.getFieldCentricPose().getY() < finalY ? 17 : -17,
-                    0,
-                    0)
-                     ).add(new MovementVector(0,0,odometry.getFieldCentricPose().getHeading(AngleUnit.DEGREES) < angle ? 5 : -5)));
-            odometry.update();
-            telemetry.clearAll();
-            telemetry.addLine("Posx: "+ odometry.getFieldCentricPose().getX());
-            telemetry.addLine("Posy: "+ odometry.getFieldCentricPose().getY());
-            telemetry.addLine("Post: "+ odometry.getFieldCentricPose().getHeading(AngleUnit.DEGREES));
-            telemetry.update();
-        }
-
-        driver.setVelocity(new MovementVector(0, 0, 0));
-    }
 
     public void turnAbsolute(double angle) {
         while (needAngleCorrectionDegrees(odometry.getFieldCentricPose().getHeading(AngleUnit.DEGREES), angle))
